@@ -1,3 +1,4 @@
+from _datetime import datetime, timedelta
 import os
 import time
 
@@ -15,11 +16,11 @@ from linear_regression import LinearRegressionModel
 sequence_length = 90
 prediction_length = 30
 batch_size = 128
-epochs = 200
+epochs = 300
 device = 'cpu'
 
 
-def to_sequences(data, scaler):
+def to_sequences(data, scaler_x, scaler_y):
     x = []
     y = []
     for i in range(len(data) - sequence_length - prediction_length):
@@ -32,8 +33,8 @@ def to_sequences(data, scaler):
         y.append(yy)
     x = np.array(x)
     x = x.reshape(x.shape[0], -1)
-    x = scaler.fit_transform(x)
-    y = scaler.fit_transform(y)
+    x = scaler_x.fit_transform(x)
+    y = scaler_y.fit_transform(y)
     return torch.tensor(x, dtype=torch.float32), torch.tensor(y, dtype=torch.float32)
 
 
@@ -66,11 +67,12 @@ df_train = df[0:num_train].to_numpy()
 df_vali = df[num_train - sequence_length:num_train + num_vali].to_numpy()
 df_test = df[len(df) - num_test - sequence_length: len(df)].to_numpy()
 
-scaler = StandardScaler()
+scaler_x = StandardScaler()
+scaler_y = StandardScaler()
 
-x_train, y_train = to_sequences(df_train, scaler)
-x_val, y_val = to_sequences(df_vali, scaler)
-x_test, y_test = to_sequences(df_test, scaler)
+x_train, y_train = to_sequences(df_train, scaler_x, scaler_y)
+x_val, y_val = to_sequences(df_vali, scaler_x, scaler_y)
+x_test, y_test = to_sequences(df_test, scaler_x, scaler_y)
 
 # Define dataset
 train_dataset = TensorDataset(x_train, y_train)
@@ -167,15 +169,31 @@ f.write('\n')
 f.write('\n')
 f.close()
 
-preds = np.load('./results/pred.npy')
 trues = np.load('./results/true.npy')
+trues = np.round(scaler_y.inverse_transform(trues)).astype(np.int32)
 
-for i in range(len(preds)):
+preds = np.load('./results/pred.npy')
+preds = np.round(scaler_y.inverse_transform(preds)).astype(np.int32)
+
+inputx = np.load('./results/x.npy')
+inputx = scaler_x.inverse_transform(inputx)
+inputx = np.round(inputx.reshape(335, 90, 14)).astype(np.int32)
+
+for i, seq in enumerate(inputx):
+    dates = []
+    y = []
+    for p in seq:
+        dates.append(datetime.strptime('{}-{}-{}'.format(p[2], p[1], p[0]), "%Y-%m-%d"))
+        y.append(p[13])
+    y = np.append(y, trues[i])
+    for _ in range(prediction_length):
+        last_date = dates[-1]
+        dates.append(last_date + timedelta(days=1))
+    plt.plot(dates, y, label='True Value')
     pred = preds[i]
-    true = trues[i]
-    plt.plot(pred, label='Prediction')
-    plt.plot(true, label='True Value')
-    plt.xlabel('Timestamp')
+    plt.plot(dates[90:], pred, label='Prediction Value')
+    plt.xlabel('Date')
+    plt.xticks(rotation=20)
     plt.ylabel('Value')
     plt.title('Comparison between Prediction and True Value')
     plt.legend()
