@@ -1,3 +1,8 @@
+# Reference:
+# Nie, Yuqi, H. Nguyen, Nam, Sinthong, Phanwadee, and Kalagnanam, Jayant. "A Time Series is Worth 64 Words:
+# Long-term Forecasting with Transformers." International Conference on Learning Representations, 2023.
+# https://github.com/yuqinie98/PatchTST
+
 import numpy as np
 import matplotlib.pyplot as plt
 
